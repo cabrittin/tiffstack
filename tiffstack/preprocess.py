@@ -12,7 +12,7 @@ import cv2
 from collections import namedtuple
 
 
-def set_roi(S,idx=0):
+def set_roi(img,window,dx,container):
     """
     
     Args:
@@ -20,11 +20,8 @@ def set_roi(S,idx=0):
     idx: int, optional (default=0)
     Index of image in sequence to use for ROI setting
     """
-    img = S.load(0).pages[idx].asarray()
-    window = "ROI"
-    dx = 50
     Param = namedtuple("Param", "img window dx rois")
-    param = Param(img,window,dx,[])
+    param = Param(img,window,dx,container)
 
     cv2.namedWindow(window)
     cv2.moveWindow(window,300,100)
@@ -34,14 +31,12 @@ def set_roi(S,idx=0):
         cv2.imshow(window,img)
         key = cv2.waitKey(0) & 0xFF
         if key == ord("q"): 
-            print(param.rois)
             break
     
     cv2.destroyWindow(window)
 
 
 def draw_fixed_roi(event,x,y,flags,params):
-    dx = 50 
     if event == cv2.EVENT_LBUTTONDOWN:
         refpt1 = (x-params.dx,y-params.dx)
         refpt2 = (x+params.dx,y+params.dx)

@@ -16,12 +16,32 @@ import os
 import glob
 import re
 
-class Loader(object):
-    def __init__(self,_cfg,dname):
-        cfg = ConfigParser(interpolation=ExtendedInterpolation())
-        cfg.read(_cfg)  
-        self.cfg = cfg['loader']
-        self.dname = dname
+from tifffile import TiffFile
+
+class Session(object):
+    def __init__(self,dname):
+        self.dname  = dname
+        ini = os.sep.join([dname,'config.ini'])
+        self.cfg = ConfigParser(interpolation=ExtendedInterpolation())
+        self.cfg.read(ini)  
+        img_dir = os.sep.join([dname,self.cfg['images']['dir']]) 
+        glob_path = format_glob_path(img_dir,self.cfg['images']['extension']) 
+        self.stacks = stacks_from_path(glob_path) 
+         
+    def load(self,idx):
+        f = self.stacks[idx]
+        return TiffFile(f)
+    
+    def load_array(self,idx,zdx=0):
+        return self.load(idx).pages[zdx].asarray()
+    
+    def iter_stack_array(self,zdx=0):
+        for i in range(len(self.stacks)):
+            yield self.load_array(i,zdx=zdx)
+
+    def get_roi_file(self):
+        return os.sep.join([self.dname,self.cfg['roi']['file']])
+
 
 class Buffer(object):
     def __init__(self,stacks,buffer_size=10):
@@ -46,8 +66,6 @@ class Buffer(object):
         if bmax < self.num_stacks: self.stack_loaded[bmax] = 0
         if bmin >= 0: self.stack_loaded[bmin] = 1
 
-
-
 def atoi(text):
     return int(text) if text.isdigit() else text
 
@@ -63,6 +81,9 @@ def format_path(L):
     ext = L.cfg['extension']
     path = os.sep.join([L.dname,'*'+ext])
     return path
+
+def format_glob_path(directory,extension):
+    return os.sep.join([directory,'*'+extension])
     
 def stacks_from_path(path,order_stacks=True):
     stacks = glob.glob(path)
