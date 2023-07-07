@@ -39,6 +39,13 @@ class Buffer(object):
         if bmax < self.num_stacks: self.stack_loaded[bmax] = 1
         if bmin >= 0: self.stack_loaded[bmin] = 0
 
+    def prev(self):
+        self.cur = max(self.cur-1,0)
+        bmax = self.cur + self.bsize
+        bmin = self.cur - self.bsize - 1 
+        if bmax < self.num_stacks: self.stack_loaded[bmax] = 0
+        if bmin >= 0: self.stack_loaded[bmin] = 1
+
 
 
 def atoi(text):

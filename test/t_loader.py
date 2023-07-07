@@ -37,3 +37,6 @@ def test_stacks_buffer():
         B.next()
         print(B.cur,B.stack_loaded)
     
+    for i in range(15):
+        B.prev()
+        print(B.cur,B.stack_loaded)
