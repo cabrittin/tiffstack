@@ -12,9 +12,8 @@ import cv2
 from collections import namedtuple
 
 
-def set_roi(img,window,dx,container):
+def set_roi(img,window,dx,dy,container):
     """
-    
     Args:
     S: Sequence object
     idx: int, optional (default=0)

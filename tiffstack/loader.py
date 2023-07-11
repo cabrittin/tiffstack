@@ -18,14 +18,18 @@ import re
 
 from tifffile import TiffFile
 
+from pycsvparser.read import parse_file
+
 class Session(object):
     def __init__(self,dname):
         self.dname  = dname
         ini = os.sep.join([dname,'config.ini'])
         self.cfg = ConfigParser(interpolation=ExtendedInterpolation())
         self.cfg.read(ini)  
-        img_dir = os.sep.join([dname,self.cfg['images']['dir']]) 
-        glob_path = format_glob_path(img_dir,self.cfg['images']['extension']) 
+        self.img_dir = os.sep.join([dname,self.cfg['images']['dir']]) 
+        self.ext_dir = os.sep.join([dname,self.cfg['images']['rois']])
+        self.roi_out = os.sep.join([self.ext_dir,'roi.npy'])
+        glob_path = format_glob_path(self.img_dir,self.cfg['images']['extension']) 
         self.stacks = stacks_from_path(glob_path) 
          
     def load(self,idx):
@@ -41,7 +45,14 @@ class Session(object):
 
     def get_roi_file(self):
         return os.sep.join([self.dname,self.cfg['roi']['file']])
-
+    
+    def roi_dims(self):
+        dx = self.cfg.getint('roi','dx')
+        dy = self.cfg.getint('roi','dy')
+        return dx,dy
+    
+    def num_stacks(self):
+        return len(self.stacks)
 
 class Buffer(object):
     def __init__(self,stacks,buffer_size=10):
@@ -65,6 +76,16 @@ class Buffer(object):
         bmin = self.cur - self.bsize - 1 
         if bmax < self.num_stacks: self.stack_loaded[bmax] = 0
         if bmin >= 0: self.stack_loaded[bmin] = 1
+
+def rois_from_file(fname):
+    @parse_file(fname,multi_dim=True)
+    def row_into_container(container,row=None,**kwargs):
+        roi = [(int(row[0]),int(row[1])),(int(row[2]),int(row[3]))]
+        container.append(roi)
+    
+    container = []
+    row_into_container(container)
+    return container
 
 def atoi(text):
     return int(text) if text.isdigit() else text
