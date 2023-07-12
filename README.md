@@ -39,6 +39,7 @@ python scripts/run_sequence.py extract_roi example_data_dir
 ```
 or with parallel processing
 ```
-python scripts/run_sequence.py extract_roi_mp example_data_dir
+python scripts/run_sequence.py extract_roi_mp example_data_dir --num_jobs=6
 ```
+where 'num_jobs' is the number of CPUs. 
 
