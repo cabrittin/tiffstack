@@ -31,17 +31,16 @@ class Session(object):
         self.roi_out = os.sep.join([self.ext_dir,'roi.npy'])
         glob_path = format_glob_path(self.img_dir,self.cfg['images']['extension']) 
         self.stacks = stacks_from_path(glob_path) 
-         
-    def load(self,idx):
-        f = self.stacks[idx]
-        return TiffFile(f)
     
-    def load_array(self,idx,zdx=0):
-        return self.load(idx).pages[zdx].asarray()
+    def get_stack(self,idx):
+        return self.stacks[idx]
     
-    def iter_stack_array(self,zdx=0):
-        for i in range(len(self.stacks)):
-            yield self.load_array(i,zdx=zdx)
+    def iter_stacks(self):
+        for s in self.stacks:
+            yield s
+    
+    def chunk_stacks(self,nchunks):
+        return split_n(self.stacks,nchunks)
 
     def get_roi_file(self):
         return os.sep.join([self.dname,self.cfg['roi']['file']])
@@ -77,6 +76,14 @@ class Buffer(object):
         if bmax < self.num_stacks: self.stack_loaded[bmax] = 0
         if bmin >= 0: self.stack_loaded[bmin] = 1
 
+
+def split_n(sequence, num_chunks):
+    chunk_size, remaining = divmod(len(sequence), num_chunks)
+    for i in range(num_chunks):
+        begin = i * chunk_size + min(i, remaining)
+        end = (i + 1) * chunk_size + min(i + 1, remaining)
+        yield sequence[begin:end]
+
 def rois_from_file(fname):
     @parse_file(fname,multi_dim=True)
     def row_into_container(container,row=None,**kwargs):
@@ -86,6 +93,12 @@ def rois_from_file(fname):
     container = []
     row_into_container(container)
     return container
+
+def tif_from_stack(fname):
+    return TiffFile(fname)
+
+def array_from_stack(fname,zdx=0):
+    return tif_from_stack(fname).pages[zdx].asarray()
 
 def atoi(text):
     return int(text) if text.isdigit() else text
