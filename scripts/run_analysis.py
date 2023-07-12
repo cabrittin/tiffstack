@@ -33,39 +33,57 @@ from stackanalysis import preprocess as pp
 
 def create_mask(args):
     S = Session(args.dir)
+    dx,dy = S.roi_dims() 
+    dx = 2*dx
+    dy = 2*dy
     rois = loader.rois_from_file(S.get_roi_file()) 
     for idx in tqdm(range(len(rois)),desc='ROIs processed'):
         fin= S.roi_out.replace('.npy',f'_{idx}.npy')
         Z = np.load(fin)
         reduced_data = pp.pca_local_sequence_diff(Z) 
         p = pp.segment_sequence(reduced_data)
+        mask = p.reshape(dy,dx)
+        mask = ndimage.binary_dilation(mask,iterations=5).astype(mask.dtype)
         fout = os.sep.join([S.ext_dir,f'mask_{idx}.npy'])
-        np.save(fout,p) 
-
+        np.save(fout,mask) 
 
         fig,ax = plt.subplots(1,1,figsize=(5,5))
         ax.scatter(reduced_data[:,0],reduced_data[:,1],s=2,c=p,cmap='bwr') 
         fout = os.sep.join([S.perf_dir,f'segmentation_{idx}.svg'])
         plt.savefig(fout) 
 
-    """
+
+def viz_mask(args):
+    S = Session(args.dir)
     dx,dy = S.roi_dims() 
     dx = 2*dx
     dy = 2*dy
     nstacks = S.num_stacks() 
-    mask = p.reshape(dy,dx)
-    mask = ndimage.binary_dilation(mask,iterations=5).astype(mask.dtype)
-    fig,ax = plt.subplots(1,1,figsize=(5,5))
-    ax.imshow(mask,cmap='gray')
-    plt.show()
-    window = 'Segmented'
+    
+    window='Mask_%d'
+    rdx = list(map(int,args.roi_index.split(',')))
+    windows = [window%r for r in rdx]
+    for (idx,w) in enumerate(windows):
+        cv2.namedWindow(w)
+        cv2.moveWindow(w,300+400*idx,500)
+    
+    mask = []
+    Z = [] 
+    for (idx,r) in enumerate(rdx):
+        fin= S.roi_out.replace('.npy',f'_{idx}.npy')
+        Z.append(np.load(fin)) 
+
+        fin = os.sep.join([S.ext_dir,f'mask_{idx}.npy'])
+        _mask = np.load(fin) 
+        mask.append(_mask) 
+    
     for i in range(nstacks):
-        img = Z[i,:].reshape(dy,dx)
-        img = img * mask 
-        img = cv2.cvtColor(img.astype(np.uint8),cv2.COLOR_GRAY2BGR)
-        cv2.imshow(window,img)
+        for (wdx,r) in enumerate(rdx): 
+            img = Z[wdx][i,:].reshape(dy,dx)
+            img = img * mask[wdx] 
+            img = cv2.cvtColor(img.astype(np.uint8),cv2.COLOR_GRAY2BGR)
+            cv2.imshow(windows[wdx],img)
         if cv2.waitKey(1) & 0xFF == ord('q'): break
-    """
 
 
 if __name__=="__main__":
