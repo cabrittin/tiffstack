@@ -1,0 +1,20 @@
+contourpy==1.1.0
+cycler==0.11.0
+dill==0.3.6
+fonttools==4.40.0
+imagecodecs==2023.7.10
+kiwisolver==1.4.4
+matplotlib==3.7.2
+multiprocess==0.70.14
+multiprocessing-on-dill==3.5.0a4
+numpy==1.25.1
+opencv-python==4.8.0.74
+packaging==23.1
+Pillow==10.0.0
+pycsvparser @ git+https://github.com/cabrittin/pycsvparser.git@7a809bb74bd0313d7cd09b7a52e3eca3f9c1d926
+pyparsing==3.0.9
+python-dateutil==2.8.2
+scipy==1.11.1
+six==1.16.0
+tifffile==2023.7.10
+tqdm==4.65.0
