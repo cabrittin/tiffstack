@@ -28,9 +28,14 @@ class Session(object):
         self.cfg.read(ini)  
         self.img_dir = os.sep.join([dname,self.cfg['images']['dir']]) 
         self.ext_dir = os.sep.join([dname,self.cfg['images']['rois']])
+        self.perf_dir = os.sep.join([dname,self.cfg['images']['performance']])
         self.roi_out = os.sep.join([self.ext_dir,'roi.npy'])
         glob_path = format_glob_path(self.img_dir,self.cfg['images']['extension']) 
         self.stacks = stacks_from_path(glob_path) 
+    
+    def get_cwd(self):
+        """ Get current working directory """
+        return self.dname + os.sep
     
     def get_stack(self,idx):
         return self.stacks[idx]

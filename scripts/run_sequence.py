@@ -31,7 +31,9 @@ CONFIG = 'config/config.ini'
 
 def set_roi(args):
     S = Session(args.dir) 
-    img = S.load_array(0)  
+    fin = S.stacks[0] 
+    img = loader.array_from_stack(fin) 
+    
     window = 'ROI'
     dx,dy = S.roi_dims() 
     rois = []
