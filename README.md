@@ -43,3 +43,29 @@ python scripts/run_sequence.py extract_roi_mp example_data_dir --num_jobs=6
 ```
 where 'num_jobs' is the number of CPUs. 
 
+## Step 4: Create masks. 
+
+```
+python scripts/run_analysis.py create_mask example_data_dir
+```
+
+## Step 5: Check that masks segment the embryos
+
+```
+python scripts/run_analysis.py viz_mask example_data_dir --roi_index=0,1,2
+```
+
+## Step 6: Process proportion of pixel changes
+
+```
+python scripts/run_analysis.py compute_pixel_change data/ac_12hr_6/
+```
+Output files saved to performance directory
+
+## Step 7: Pixel value in the embryo relative to background (optional)
+```
+python scripts/run_analysis.py compute_pixel_distribution data/ac_12hr_6/
+```
+Output files saved to performance directory
+
+
