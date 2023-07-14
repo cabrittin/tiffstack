@@ -96,7 +96,7 @@ def compute_pixel_change(args):
         p = az.proportion_pixel_change(Z,mask,zthresh=pixel_change_thresh)
         P[idx,:] = p
 
-        pm = np.convolve(p,np.ones(wsize),"valid") / float(wsize)
+        pm = np.convolve(p,np.ones(wsize)/float(wsize),"valid")
         Pm[idx,:] = pm
 
         t = np.arange(len(p))
@@ -151,6 +151,30 @@ def compute_pixel_distribution(args):
         fout = os.sep.join([S.perf_dir,f'pixel_relative_to_background_{idx}.svg'])
         plt.savefig(fout) 
  
+def subsample_data(args):
+    S = Session(args.dir)
+    nstacks = S.num_stacks()
+    C = read.into_list(os.sep.join([S.dname,'scrubber.csv']),multi_dim=True,dtype=int)
+    delta = C[0][2] - C[0][1] 
+    f = args.sample_freq
+    delta = delta // f
+    pixel_change_thresh = S.cfg.getint('analysis','pixel_change_thresh')
+    P = np.zeros((len(C),delta))
+    for (jdx,[idx,tstart,tend]) in tqdm(enumerate(C),desc='Scrubber list',total=len(C)):
+        fin= S.roi_out.replace('.npy',f'_{idx}.npy')
+        Z = np.load(fin)
+        Z = Z[tstart:tend+1,:]
+        Z = Z[::f,:]
+
+        fin = os.sep.join([S.ext_dir,f'mask_{idx}.npy']) 
+        mask = np.load(fin)
+        
+        p = az.proportion_pixel_change(Z,mask,zthresh=pixel_change_thresh)
+        P[jdx,:] = p
+
+    fout = os.sep.join([S.ext_dir,f'prop_pixel_change_sample_freq_{f}.npy'])
+    np.save(fout,P)
+
 
 if __name__=="__main__":
     parser = argparse.ArgumentParser(description=__doc__,
@@ -179,7 +203,14 @@ if __name__=="__main__":
             type=int,
             required = False,
             help = 'Number of parallel jobs')
-
+    
+    parser.add_argument('--sample_freq',
+            dest = 'sample_freq',
+            action = 'store',
+            default = 1,
+            type=int,
+            required = False,
+            help = 'Will sample at every nth timepoint')
 
 
     args = parser.parse_args()
