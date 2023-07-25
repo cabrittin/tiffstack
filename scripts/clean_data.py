@@ -67,6 +67,28 @@ def check_autocorrelation(args):
     plt.show()
 
 
+def moving_fano(args):
+    P = np.load(args.fin) 
+    P = np.delete(P,(6),axis=0)
+    t = np.arange(P.shape[1])
+    t = t / 60. + 430
+    fig,ax = plt.subplots(1,1,figsize=(10,5))
+    for i in range(P.shape[0]):
+        ax.plot(t,P[i,:],linestyle='-',label=f'{i}')
+    
+    #ax.legend()
+    ax.set_xlim(xmax=700)
+    #ax.set_ylabel('Fano factor (Var/Mean)',fontsize=12)
+    ax.set_ylabel('Dispersion (Var/Mean)',fontsize=12)
+    ax.set_xlabel('time (s)',fontsize=12)
+    
+    if args.fout is not None:
+        plt.savefig(args.fout,dpi=300)
+
+   
+    plt.show()
+
+
 def fft_prop_pixels(args):
     P = np.load(args.fin)
     idx = 0

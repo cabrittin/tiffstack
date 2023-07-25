@@ -46,4 +46,12 @@ def pixel_above_background(Z,mask):
 
     return X
 
+def frame_pixel_histogram(Z,mask):
+    Z = Z.astype(np.int32)
+    Z1 = Z[:,mask == 1]
     
+    H = np.zeros((Z1.shape[0],255))
+    for i in range(Z1.shape[0]):
+        H[i,:] = np.histogram(Z1[i,:],bins=255,range=(0,255),density=True)[0]
+    
+    return H

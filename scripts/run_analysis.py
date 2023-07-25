@@ -79,6 +79,52 @@ def viz_mask(args):
             cv2.imshow(windows[wdx],img)
         if cv2.waitKey(1) & 0xFF == ord('q'): break
 
+def save_mask(args):
+    S = Session(args.dir)
+    dx,dy = S.roi_dims() 
+    dx = 2*dx
+    dy = 2*dy
+    nstacks = S.num_stacks() 
+    
+    window='Mask_%d'
+    rdx = list(map(int,args.roi_index.split(',')))[:1]
+    print(rdx)
+    windows = [window%r for r in rdx]
+    for (idx,w) in enumerate(windows):
+        cv2.namedWindow(w)
+        cv2.moveWindow(w,300+400*idx,500)
+    
+    mask = []
+    ctr = []
+    Z = [] 
+    for (idx,r) in enumerate(rdx):
+        fin= S.roi_out.replace('.npy',f'_{r}.npy')
+        Z.append(np.load(fin)) 
+
+        fin = os.sep.join([S.ext_dir,f'mask_{r}.npy']) 
+        _mask = np.load(fin)
+        mask.append(_mask) 
+        _mask = _mask.reshape(dy,dx).astype(np.uint8)
+        im, contours = cv2.findContours(_mask, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_NONE)
+        ctr.append(im)
+    
+    size = (dy,dx)
+    result = cv2.VideoWriter('data/segmented_embryo.avi', cv2.VideoWriter_fourcc(*'MJPG'),100, size)
+
+    for i in range(nstacks):
+        for (wdx,r) in enumerate(rdx): 
+            img = Z[wdx][i,:]
+            #img = img * mask[wdx] 
+            img = cv2.cvtColor(img.reshape(dy,dx).astype(np.uint8),cv2.COLOR_GRAY2BGR)
+            cv2.drawContours(img, ctr[wdx], 0, (0, 0, 255), 1) 
+            result.write(img)
+            cv2.imshow(windows[wdx],img)
+        if cv2.waitKey(1) & 0xFF == ord('q'): break
+    
+    result.release()
+    cv2.destroyAllWindows()
+
+
 def compute_pixel_change(args):
     S = Session(args.dir)
     nstacks = S.num_stacks()
@@ -150,7 +196,31 @@ def compute_pixel_distribution(args):
 
         fout = os.sep.join([S.perf_dir,f'pixel_relative_to_background_{idx}.svg'])
         plt.savefig(fout) 
- 
+
+def compute_frame_pixel_distribution(args):
+    S = Session(args.dir)
+    nstacks = S.num_stacks()
+    rois = loader.rois_from_file(S.get_roi_file()) 
+    idx = 2
+    for idx in tqdm(range(len(rois)),desc='ROIs processed'):
+        fin= S.roi_out.replace('.npy',f'_{idx}.npy')
+        Z = np.load(fin) 
+        fin = os.sep.join([S.ext_dir,f'mask_{idx}.npy']) 
+        mask = np.load(fin)
+
+        P = az.frame_pixel_histogram(Z,mask)
+        P = P / P.max(axis=1)[:,None]
+        
+        fig,ax = plt.subplots(1,1,figsize=(10,10))
+        sns.heatmap(ax=ax,data=P,cmap='viridis')
+        ax.set_ylabel('time',fontsize=12) 
+        ax.set_xlabel('pixel value',fontsize=12) 
+        
+        fout = os.sep.join([S.perf_dir,f'frame_pixel_dist_{idx}.png'])
+        plt.savefig(fout,dpi=300) 
+
+
+
 def subsample_data(args):
     S = Session(args.dir)
     nstacks = S.num_stacks()
@@ -173,6 +243,55 @@ def subsample_data(args):
         P[jdx,:] = p
 
     fout = os.sep.join([S.ext_dir,f'prop_pixel_change_sample_freq_{f}.npy'])
+    np.save(fout,P)
+
+def viz_subsample_data(args):
+    S = Session(args.dir)
+    nstacks = S.num_stacks()
+    C = read.into_list(os.sep.join([S.dname,'scrubber.csv']),multi_dim=True,dtype=int)
+    delta = C[0][2] - C[0][1] 
+    pixel_change_thresh = S.cfg.getint('analysis','pixel_change_thresh')
+    [idx,tstart,tend] = C[0]
+    fin= S.roi_out.replace('.npy',f'_{idx}.npy')
+    Z = np.load(fin)
+    Z = Z[tstart:tend+1,:]
+    fin = os.sep.join([S.ext_dir,f'mask_{idx}.npy']) 
+    mask = np.load(fin)
+    p = az.proportion_pixel_change(Z,mask,zthresh=pixel_change_thresh)
+    
+    fig,ax = plt.subplots(1,1,figsize=(10,5))
+    ax.plot(p,linestyle='-',c='#cdcdcd')
+    
+    plt.show()
+
+def moving_fano(args):
+    S = Session(args.dir)
+    nstacks = S.num_stacks()
+    C = read.into_list(os.sep.join([S.dname,'scrubber.csv']),multi_dim=True,dtype=int)
+    delta = C[0][2] - C[0][1] 
+    pixel_change_thresh = S.cfg.getint('analysis','pixel_change_thresh')
+    dw = 100
+    P = np.zeros((len(C),delta-2*dw))
+    for (jdx,[idx,tstart,tend]) in tqdm(enumerate(C),desc='Scrubber list',total=len(C)):
+        fin= S.roi_out.replace('.npy',f'_{idx}.npy')
+        Z = np.load(fin)
+        Z = Z[tstart:tend+1,:]
+        
+        fin = os.sep.join([S.ext_dir,f'mask_{idx}.npy']) 
+        mask = np.load(fin)
+        
+        p = az.proportion_pixel_change(Z,mask,zthresh=pixel_change_thresh)
+        tdx = np.arange(len(p))
+        v = []
+        u = []
+        for t in tdx[dw:-dw]:
+            _v = np.var(p[t-dw:t+dw])
+            _u = np.mean(p[t-dw:t+dw])
+            v.append(_v)
+            u.append(_u)
+        P[jdx,:] = np.array(v) / np.array(u)
+
+    fout = os.sep.join([S.ext_dir,f'subsampled_fano.npy'])
     np.save(fout,P)
 
 
