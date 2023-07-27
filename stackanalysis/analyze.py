@@ -9,6 +9,7 @@
 """
 
 import numpy as np
+from sklearn.decomposition import PCA
 
 def proportion_pixel_change(Z,mask,zthresh=2):
     Z = Z.astype(np.int32)
@@ -55,3 +56,11 @@ def frame_pixel_histogram(Z,mask):
         H[i,:] = np.histogram(Z1[i,:],bins=255,range=(0,255),density=True)[0]
     
     return H
+
+def pixel_pca(Z,mask,n_components=50,trange=None):
+    Z = Z.astype(np.int32)
+    Z1 = Z[:,mask == 1]
+    pca = PCA(n_components=n_components)
+    if trange is not None: Z1 = Z1[trange[0]:trange[1],:]
+    pca.fit(Z1) 
+    return pca

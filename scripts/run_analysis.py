@@ -201,7 +201,6 @@ def compute_frame_pixel_distribution(args):
     S = Session(args.dir)
     nstacks = S.num_stacks()
     rois = loader.rois_from_file(S.get_roi_file()) 
-    idx = 2
     for idx in tqdm(range(len(rois)),desc='ROIs processed'):
         fin= S.roi_out.replace('.npy',f'_{idx}.npy')
         Z = np.load(fin) 
@@ -219,7 +218,29 @@ def compute_frame_pixel_distribution(args):
         fout = os.sep.join([S.perf_dir,f'frame_pixel_dist_{idx}.png'])
         plt.savefig(fout,dpi=300) 
 
+def compute_pixel_pca(args):
+    S = Session(args.dir)
+    nstacks = S.num_stacks()
+    rois = loader.rois_from_file(S.get_roi_file()) 
+    idx = 0
+    
+    fin= S.roi_out.replace('.npy',f'_{idx}.npy')
+    Z = np.load(fin) 
+    fin = os.sep.join([S.ext_dir,f'mask_{idx}.npy']) 
+    mask = np.load(fin)
 
+    pca = az.pixel_pca(Z,mask,n_components=10,trange=[800,1800]) 
+    #pca = az.pixel_pca(Z,mask,n_components=10,trange=[240,640]) 
+    #pca = az.pixel_pca(Z,mask,n_components=50) 
+    
+    fig,ax = plt.subplots(1,1,figsize=(5,5))
+    ax.plot(np.cumsum(pca.explained_variance_ratio_),'b-')
+    #ax.plot(pca.explained_variance_ratio_,'b-')
+    ax.set_ylim([0,1]) 
+    ax.set_xlim(xmin=0) 
+    ax.set_ylabel('Explained variance',fontsize=12)
+    ax.set_xlabel('ordered eigen values',fontsize=12)
+    plt.show()
 
 def subsample_data(args):
     S = Session(args.dir)
