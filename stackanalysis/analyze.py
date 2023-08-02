@@ -12,6 +12,12 @@ import numpy as np
 from sklearn.decomposition import PCA
 
 def proportion_pixel_change(Z,mask,zthresh=2):
+    D = pixel_change(Z,mask,zthresh=zthresh)
+    p = D.mean(axis=1)
+    
+    return p
+
+def pixel_change(Z,mask,zthresh=2):
     Z = Z.astype(np.int32)
     Z0 = Z[:,mask == 0]
     Z1 = Z[:,mask == 1]
@@ -28,9 +34,8 @@ def proportion_pixel_change(Z,mask,zthresh=2):
     
     D1[D1<zthresh] = 0
     D1[D1>0] = 1
-    p = D1.mean(axis=1)
     
-    return p
+    return D1
 
 def pixel_above_background(Z,mask):
     Z = Z.astype(np.int32)

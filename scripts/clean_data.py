@@ -25,7 +25,6 @@ def pixels_above_background(args):
     for i in range(P.shape[0]):
         Pm[i,:] = np.convolve(P[i,:],np.ones(wsize)/float(wsize),"valid")
     
-    """
     fig,ax = plt.subplots(1,1,figsize=(15,5))
     sns.heatmap(ax=ax,data=Pm,cmap='viridis') 
     ax.set_xticklabels([])
@@ -34,10 +33,10 @@ def pixels_above_background(args):
     if args.fout is not None:
         fout = args.fout.replace('.png','_heatmap.png')
         plt.savefig(fout,dpi=300)
-    """
-
+    
     t = np.arange(Pm.shape[1])*f
-    t = t / 60. + 430
+    #t = t / 60. + 430
+    t = t / 60. + 400
     mu = Pm.mean(axis=0)
     fig,ax = plt.subplots(1,1,figsize=(10,5))
     for i in range(Pm.shape[0]):
@@ -45,14 +44,15 @@ def pixels_above_background(args):
     
     ax.plot(t,mu,'-k')
     ax.set_ylim([0.25,0.75])
-    ax.set_xlim(xmax=700)
+    #ax.set_xlim(xmax=700)
+    ax.set_xlim([400,800])
     ax.set_ylabel('% pixel change',fontsize=12)
     ax.set_xlabel('time (s)',fontsize=12)
     if args.fout is not None:
         plt.savefig(args.fout,dpi=300)
-
+    
     plt.show()
-
+    
 
 def check_autocorrelation(args):
     P = np.load(args.fin)
@@ -69,18 +69,22 @@ def check_autocorrelation(args):
 
 def moving_fano(args):
     P = np.load(args.fin) 
-    P = np.delete(P,(6),axis=0)
-    t = np.arange(P.shape[1])
+    #P = np.delete(P,(6),axis=0)
+    f = args.sample_freq 
+    t = np.arange(P.shape[1])*f
     t = t / 60. + 430
+    #t = t / 60. + 400
     fig,ax = plt.subplots(1,1,figsize=(10,5))
     for i in range(P.shape[0]):
         ax.plot(t,P[i,:],linestyle='-',label=f'{i}')
     
     #ax.legend()
-    ax.set_xlim(xmax=700)
+    #ax.set_xlim(xmax=700)
+    ax.set_xlim([500,800])
+    ax.set_ylim([0,0.4]) 
     #ax.set_ylabel('Fano factor (Var/Mean)',fontsize=12)
-    ax.set_ylabel('Dispersion (Var/Mean)',fontsize=12)
-    ax.set_xlabel('time (s)',fontsize=12)
+    ax.set_ylabel("Motor 'jerkiness' (Var/Mean)",fontsize=12)
+    ax.set_xlabel('time (min)',fontsize=12)
     
     if args.fout is not None:
         plt.savefig(args.fout,dpi=300)

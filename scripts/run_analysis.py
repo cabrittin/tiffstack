@@ -34,11 +34,13 @@ from stackanalysis import analyze as az
 def create_mask(args):
     S = Session(args.dir)
     rois = loader.rois_from_file(S.get_roi_file()) 
+    mswitch = list(map(int,read.into_list(os.sep.join([S.dname,f'mask_switch.txt']))))
+         
     for idx in tqdm(range(len(rois)),desc='ROIs processed'):
         fin= S.roi_out.replace('.npy',f'_{idx}.npy')
         Z = np.load(fin)
         reduced_data = pp.pca_local_sequence_diff(Z) 
-        p = pp.segment_sequence(reduced_data)
+        p = pp.segment_sequence(reduced_data,mask_switch=mswitch[idx])
         fout = os.sep.join([S.ext_dir,f'mask_{idx}.npy'])
         np.save(fout,p) 
 
@@ -124,6 +126,68 @@ def save_mask(args):
     result.release()
     cv2.destroyAllWindows()
 
+def get_slice(tdx,Z,mask,dy,dx):
+    img = Z[tdx,:] #* mask[tdx]
+    mask = mask.reshape(dy,dx).astype(np.uint8)
+    ctr, contours = cv2.findContours(mask, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_NONE)
+    img = cv2.cvtColor(img.reshape(dy,dx).astype(np.uint8),cv2.COLOR_GRAY2BGR)
+    cv2.drawContours(img,ctr, 0, (0, 0, 255), 1) 
+
+    return img
+
+
+def viz_pixel_change(args):
+    S = Session(args.dir)
+    dx,dy = S.roi_dims() 
+    dx = 2*dx
+    dy = 2*dy
+    nstacks = S.num_stacks()
+    pixel_change_thresh = S.cfg.getint('analysis','pixel_change_thresh')
+    wsize = S.cfg.getint('analysis','smoothing_kernel_size')  
+    rois = loader.rois_from_file(S.get_roi_file()) 
+    
+    idx = 3
+    tdx = 502
+
+    fin= S.roi_out.replace('.npy',f'_{idx}.npy')
+    Z = np.load(fin) 
+    Z = Z[10100:11100,:]
+
+    fin = os.sep.join([S.ext_dir,f'mask_{idx}.npy']) 
+    mask = np.load(fin)
+  
+    img = get_slice(tdx,Z,mask,dy,dx)
+    cv2.namedWindow('slice')
+    cv2.moveWindow('slice',300,500)
+    cv2.imshow('slice',img)
+    fout = os.sep.join([S.perf_dir,f'seg_slice_{tdx}.png'])
+    cv2.imwrite(fout,img) 
+    cv2.waitKey(0)
+    
+    p = az.proportion_pixel_change(Z,mask,zthresh=pixel_change_thresh)
+    
+    fig,ax = plt.subplots(1,1,figsize=(10,5))
+    ax.plot(p,'k-')
+    ax.set_xticks([])
+    ax.set_yticks([])
+    ax.axis('off') 
+    fout = os.sep.join([S.perf_dir,f'px_change_roi_{idx}.png'])
+    plt.savefig(fout)
+    
+    D = az.pixel_change(Z,mask,zthresh=pixel_change_thresh)
+    Z = Z.astype(np.int32)
+    Z[:,mask==0] = 0
+    Z[1:,mask==1] = D
+
+    z = Z[tdx,:]
+    z = z.reshape((dx,dy)) 
+    fig,ax = plt.subplots(1,1,figsize=(5,5))
+    ax.imshow(1-z,cmap='Greys')
+    ax.set_xticks([])
+    ax.set_yticks([])
+    fout = os.sep.join([S.perf_dir,f'pixel_change_slice_{tdx}.png'])
+    plt.savefig(fout)
+    plt.show()
 
 def compute_pixel_change(args):
     S = Session(args.dir)
@@ -290,6 +354,8 @@ def moving_fano(args):
     nstacks = S.num_stacks()
     C = read.into_list(os.sep.join([S.dname,'scrubber.csv']),multi_dim=True,dtype=int)
     delta = C[0][2] - C[0][1] 
+    f = args.sample_freq
+    delta = delta // f
     pixel_change_thresh = S.cfg.getint('analysis','pixel_change_thresh')
     dw = 100
     P = np.zeros((len(C),delta-2*dw))
@@ -297,6 +363,7 @@ def moving_fano(args):
         fin= S.roi_out.replace('.npy',f'_{idx}.npy')
         Z = np.load(fin)
         Z = Z[tstart:tend+1,:]
+        Z = Z[::f,:]
         
         fin = os.sep.join([S.ext_dir,f'mask_{idx}.npy']) 
         mask = np.load(fin)

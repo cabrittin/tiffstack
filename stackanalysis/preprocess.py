@@ -18,15 +18,18 @@ def pca_local_sequence_diff(Z):
     return PCA(n_components=2).fit_transform(D.T)
    
 
-
-def segment_sequence(Z):
+def segment_sequence(Z,mask_switch=0):
     kmeans = KMeans(init="k-means++", n_clusters=2, n_init=4)
     kmeans.fit(Z)
     p = kmeans.predict(Z)
+     
+    if mask_switch == 1:
+        p = 1 - p
+    #else:
+    #    p1max = Z[p==1].max()
+    #    p0max = Z[p==0].max()
+    #    if p0max > p1max: p = 1 - p
     
-    p1max = Z[p==1].max()
-    p0max = Z[p==0].max()
-    if p0max > p1max: p = 1 - p
     return p
 
 
