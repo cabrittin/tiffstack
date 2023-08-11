@@ -34,13 +34,13 @@ from stackanalysis import analyze as az
 def create_mask(args):
     S = Session(args.dir)
     rois = loader.rois_from_file(S.get_roi_file()) 
-    mswitch = list(map(int,read.into_list(os.sep.join([S.dname,f'mask_switch.txt']))))
+    #mswitch = list(map(int,read.into_list(os.sep.join([S.dname,f'mask_switch.txt']))))
          
     for idx in tqdm(range(len(rois)),desc='ROIs processed'):
         fin= S.roi_out.replace('.npy',f'_{idx}.npy')
         Z = np.load(fin)
         reduced_data = pp.pca_local_sequence_diff(Z) 
-        p = pp.segment_sequence(reduced_data,mask_switch=mswitch[idx])
+        p = pp.segment_sequence(reduced_data)#mask_switch=mswitch[idx])
         fout = os.sep.join([S.ext_dir,f'mask_{idx}.npy'])
         np.save(fout,p) 
 
@@ -49,6 +49,37 @@ def create_mask(args):
         fout = os.sep.join([S.perf_dir,f'segmentation_{idx}.svg'])
         plt.savefig(fout) 
 
+def flip_mask(args):
+    S = Session(args.dir)
+    rdx = list(map(int,args.roi_index.split(',')))
+    
+    for r in tqdm(rdx,desc='Flipping masks:'):
+        mfile = os.sep.join([S.ext_dir,f'mask_{r}.npy']) 
+        mask = np.load(mfile)
+        mask = 1 - mask 
+        np.save(mfile,mask)
+
+def viz_all_masks(args):
+    S = Session(args.dir)
+    dx,dy = S.roi_dims() 
+    dx = 2*dx
+    dy = 2*dy
+
+    rois = loader.rois_from_file(S.get_roi_file()) 
+    
+    Z = np.zeros((S.height,S.width),dtype=np.uint8)
+    
+    for (idx,[(x0,y0),(x1,y1)]) in enumerate(rois):
+        fin = os.sep.join([S.ext_dir,f'mask_{idx}.npy']) 
+        mask = np.load(fin).reshape(dy,dx).astype(np.uint8)
+        mask = mask * idx
+        Z[y0:y1,x0:x1] = mask
+    
+    fig, ax = plt.subplots(1, 1, figsize=(16, 8)) 
+    ax.set_axis_off()
+    ax.imshow(Z)
+
+    plt.show()
 
 def viz_mask(args):
     S = Session(args.dir)

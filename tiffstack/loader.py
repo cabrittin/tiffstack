@@ -32,7 +32,10 @@ class Session(object):
         self.roi_out = os.sep.join([self.ext_dir,'roi.npy'])
         glob_path = format_glob_path(self.img_dir,self.cfg['images']['extension']) 
         self.stacks = stacks_from_path(glob_path) 
-    
+        img = array_from_stack(self.stacks[0])
+        self.height = img.shape[0]
+        self.width = img.shape[1]
+
     def get_cwd(self):
         """ Get current working directory """
         return self.dname + os.sep
