@@ -99,6 +99,47 @@ def build_masks(S):
     
     return Z 
 
+
+def make_train(args):
+    S = Session(args.dir)
+    dx,dy = S.roi_dims() 
+    dx = 2*dx
+    dy = 2*dy    
+    
+    mask = build_masks(S)
+    rois = loader.rois_from_file(S.get_roi_file()) 
+    
+    bdx = list(map(int,S.cfg['mask']['blanks'].split(',')))
+    
+    n_train_stacks = S.cfg.getint('training','num_stacks')
+    n_stacks = S.num_stacks()
+    
+
+    for i in tqdm(range(n_train_stacks),desc='Training generated'):
+        rdx = random.randint(0,n_stacks)
+        img = loader.array_from_stack(S.get_stack(rdx))
+        img = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
+        M = mask.copy()
+        transform_rois(img,blanks=bdx,rois=rois,roi_size=(dy,dx),mask=M)
+        
+        mout = S.cfg['training']['masks']%rdx
+        iout = S.cfg['training']['images']%rdx
+        
+        np.save(mout,M)
+        np.save(iout,img)
+
+
+def transform_rois(img,blanks=None,rois=None,roi_size=None,n_swaps=10,n_trans=10,mask=None,**kwargs):
+    blank_image(img,blanks,rois,roi_size,mask=mask)
+    rois = rois[:] 
+    for _ in range(n_trans):
+        img,rois = translate_rois(img,rois,blanks=blanks,mask=mask)
+    
+    for _ in range(n_swaps): swap_rois(img,rois,blanks=blanks,mask=mask)
+    flip_rois(img,rois,blanks=blanks,mask=mask)
+    rotate_rois(img,rois,blanks=blanks,mask=mask)
+
+
 def run_stack(func):
     def inner(args,**kwargs):
         S = Session(args.dir)
@@ -109,55 +150,57 @@ def run_stack(func):
         mask = build_masks(S)
         rois = loader.rois_from_file(S.get_roi_file()) 
         
-        bdx = [0,2,5] 
+        bdx = list(map(int,S.cfg['mask']['blanks'].split(',')))
 
         window='Blanks'
         cv2.namedWindow(window)
         cv2.moveWindow(window,300,100)
         for s in S.iter_stacks():
             img = loader.array_from_stack(s)
+            img = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
             M = mask.copy()
             func(img,blanks=bdx,rois=rois,roi_size=(dy,dx),mask=M)
             
             cv2.imshow(window,img)
             if cv2.waitKey(1) & 0xFF == ord('q'): break
-             
+            
+            """
             fig, ax = plt.subplots(1, 1, figsize=(16, 8)) 
             ax.set_axis_off()
             ax.imshow(M)
-
             plt.show()
-   
+            """
+
     return inner
 
 @ run_stack
-def viz_blanks(img,blanks=None,rois=None,roi_size=None,mask=None,**kwargs):
+def run_blanks(img,blanks=None,rois=None,roi_size=None,mask=None,**kwargs):
     blank_image(img,blanks,rois,roi_size,mask=mask)
 
 @ run_stack
-def viz_rotate(img,blanks=None,rois=None,roi_size=None,mask=None,**kwargs):
+def run_rotate(img,blanks=None,rois=None,roi_size=None,mask=None,**kwargs):
     blank_image(img,blanks,rois,roi_size,mask=mask)
     rotate_rois(img,rois,blanks=blanks,mask=mask)
 
 @ run_stack
-def viz_flip(img,blanks=None,rois=None,roi_size=None,mask=None,**kwargs):
+def run_flip(img,blanks=None,rois=None,roi_size=None,mask=None,**kwargs):
     blank_image(img,blanks,rois,roi_size,mask=mask)
     flip_rois(img,rois,blanks=blanks,mask=mask)
 
 @ run_stack
-def viz_swap(img,blanks=None,rois=None,roi_size=None,n_swaps=10,mask=None,**kwargs):
+def run_swap(img,blanks=None,rois=None,roi_size=None,n_swaps=10,mask=None,**kwargs):
     blank_image(img,blanks,rois,roi_size,mask=mask)
     for _ in range(n_swaps): swap_rois(img,rois,blanks=blanks,mask=mask)
 
 @ run_stack
-def viz_translate(img,blanks=None,rois=None,roi_size=None,n_trans=10,mask=None,**kwargs):
+def run_translate(img,blanks=None,rois=None,roi_size=None,n_trans=10,mask=None,**kwargs):
     blank_image(img,blanks,rois,roi_size,mask=mask)
     rois = rois[:] 
     for _ in range(n_trans):
         img,rois = translate_rois(img,rois,blanks=blanks,mask=mask)
 
 @ run_stack
-def viz_all_translations(img,blanks=None,rois=None,roi_size=None,n_swaps=10,n_trans=10,mask=None,**kwargs):
+def run_all_translations(img,blanks=None,rois=None,roi_size=None,n_swaps=10,n_trans=10,mask=None,**kwargs):
     blank_image(img,blanks,rois,roi_size,mask=mask)
     rois = rois[:] 
     for _ in range(n_trans):
