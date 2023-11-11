@@ -15,75 +15,33 @@ from configparser import ConfigParser,ExtendedInterpolation
 import os
 import glob
 import re
+import numpy as np
 
 from tifffile import TiffFile
 
 from pycsvparser.read import parse_file
 
 class Session(object):
-    def __init__(self,dname):
-        self.dname  = dname
-        ini = os.sep.join([dname,'config.ini'])
-        self.cfg = ConfigParser(interpolation=ExtendedInterpolation())
-        self.cfg.read(ini)  
-        self.img_dir = os.sep.join([dname,self.cfg['images']['dir']]) 
-        self.ext_dir = os.sep.join([dname,self.cfg['images']['rois']])
-        self.perf_dir = os.sep.join([dname,self.cfg['images']['performance']])
-        self.roi_out = os.sep.join([self.ext_dir,'roi.npy'])
-        glob_path = format_glob_path(self.img_dir,self.cfg['images']['extension']) 
-        self.stacks = stacks_from_path(glob_path) 
-        img = array_from_stack(self.stacks[0])
-        self.height = img.shape[0]
-        self.width = img.shape[1]
+    def __init__(self,path):
+        self.stacks = stacks_from_path(path)
+        tif = tif_from_stack(self.stacks[0])
+        self.height = tif.pages[0].shape[0] 
+        self.width = tif.pages[0].shape[1] 
+        self.depth = len(tif.pages)
 
-    def get_cwd(self):
-        """ Get current working directory """
-        return self.dname + os.sep
-    
+    def __len__(self):
+        return len(self.stacks)
+
     def get_stack(self,idx):
         return self.stacks[idx]
     
     def iter_stacks(self):
         for s in self.stacks:
             yield s
-    
+
     def chunk_stacks(self,nchunks):
         return split_n(self.stacks,nchunks)
-
-    def get_roi_file(self):
-        return os.sep.join([self.dname,self.cfg['roi']['file']])
     
-    def roi_dims(self):
-        dx = self.cfg.getint('roi','dx')
-        dy = self.cfg.getint('roi','dy')
-        return dx,dy
-    
-    def num_stacks(self):
-        return len(self.stacks)
-
-class Buffer(object):
-    def __init__(self,stacks,buffer_size=10):
-        self.bsize = buffer_size
-        self.num_stacks = len(stacks)
-        self.stacks_ptr = stacks
-        self.cur = 0
-        self.stack_loaded = [0]*self.num_stacks
-        self.stack_loaded[:self.bsize+1] = [1]*(self.bsize+1)
-
-    def next(self):
-        self.cur = min(self.cur+1,self.num_stacks-1)
-        bmax = self.cur + self.bsize
-        bmin = self.cur - self.bsize - 1 
-        if bmax < self.num_stacks: self.stack_loaded[bmax] = 1
-        if bmin >= 0: self.stack_loaded[bmin] = 0
-
-    def prev(self):
-        self.cur = max(self.cur-1,0)
-        bmax = self.cur + self.bsize
-        bmin = self.cur - self.bsize - 1 
-        if bmax < self.num_stacks: self.stack_loaded[bmax] = 0
-        if bmin >= 0: self.stack_loaded[bmin] = 1
-
 
 def split_n(sequence, num_chunks):
     chunk_size, remaining = divmod(len(sequence), num_chunks)
@@ -92,21 +50,36 @@ def split_n(sequence, num_chunks):
         end = (i + 1) * chunk_size + min(i + 1, remaining)
         yield sequence[begin:end]
 
-def rois_from_file(fname):
-    @parse_file(fname,multi_dim=True)
-    def row_into_container(container,row=None,**kwargs):
-        roi = [(int(row[0]),int(row[1])),(int(row[2]),int(row[3]))]
-        container.append(roi)
-    
-    container = []
-    row_into_container(container)
-    return container
-
 def tif_from_stack(fname):
     return TiffFile(fname)
 
 def array_from_stack(fname,zdx=0):
     return tif_from_stack(fname).pages[zdx].asarray()
+
+def image_to_rgb(image):
+    ndims = len(image.shape)
+    if ndims < 3:
+        image = cv2.cvtColor(image,cv2.COLOR_GRAY2RGB)
+    return image
+
+def image_to_gray(image):
+    ndims = len(image.shape)
+    if ndims > 2:
+        image = cv2.cvtColor(image,cv2.COLOR_BGR2GRAY)
+    return image
+
+def array_16bit_to_8bit(a):
+    # If already 8bit, return array
+    if a.dtype == 'uint8': return a
+    a = np.array(a,copy=True)
+    display_min = np.amin(a)
+    display_max = np.amax(a)
+    a.clip(display_min, display_max, out=a)
+    a -= display_min
+    np.floor_divide(a, (display_max - display_min + 1) / 256,
+                    out=a, casting='unsafe')
+    return a.astype('uint8') 
+
 
 def atoi(text):
     return int(text) if text.isdigit() else text
