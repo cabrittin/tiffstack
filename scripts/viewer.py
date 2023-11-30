@@ -1,3 +1,4 @@
+#!/opt/stack/bin/python
 """
 @name: viewer.py                         
 @description:                  
@@ -17,33 +18,41 @@ import glob
 import re
 from tqdm import tqdm
 import numpy as np
+from concurrent.futures.process import ProcessPoolExecutor
+import concurrent.futures
+import multiprocess as mp
+from random import sample
 
 from tiffstack.viewer import Stack,image_looper
 from tiffstack.loader import Session
 from tiffstack import loader
 
+MAX_PIXEL = 2**16
+
 class TimeLapse(Stack):
     def __init__(self,*args,**kwargs):
         super(Stack,self).__init__()
         self.path = args[0] 
+        if isinstance(self.path,list): self.path = self.path[0]
+
         self.S = Session(args[0])
         self.sequence_size = len(self.S)
         self.stack_size = self.S.depth
         
         self.jdx = 0
         self.idx = 0
-        
+   
+        self.pxmin = 0
+        self.pxmax = 0
+
+        self.lut_checks = [0]*len(self.S)
+    
+    def init_window(self):
         self.wtitle = 'Time point %d/%d ::: Z %d/%d'
         self.win ='Volume'
         cv2.namedWindow(self.win)
         cv2.moveWindow(self.win,800,500)
         self.update_title()
-   
-        self.pxmin = 0
-        self.pxmax = 0
-        self.MAX_PX = 2**16
-
-        self.preprocess()
 
     def update_title(self):
         wtitle = self.wtitle%(self.jdx,self.sequence_size,self.idx,self.stack_size)
@@ -51,7 +60,22 @@ class TimeLapse(Stack):
  
     def load_stack(self,jdx):
         self.jdx = jdx 
-        self.stack = loader.tif_from_stack(self.S.get_stack(jdx))
+        stack = self.S.get_stack(jdx)
+        #Check if LUT needs to be updated
+        if self.lut_checks[jdx] == 0:
+            px = get_min_max(stack)
+            update_px_range = False
+            if px[0] < self.pxmin:
+                self.pxmin = px[0]
+                update_px_range = True
+            if px[1] > self.pxmax:
+                self.pxmax = px[1]
+                update_px_range = True
+            if update_px_range: 
+                self.pxlut = compute_lut(self.pxmin,self.pxmax)
+            self.lut_checks[jdx] = 1
+
+        self.stack = loader.tif_from_stack(stack)
         update_display(self)
 
     def display(self,idx):
@@ -66,22 +90,20 @@ class TimeLapse(Stack):
         """
         Makes lookup table to convert 16-bit image to 8-bit image 
         """
-        for stack in tqdm(self.S.iter_stacks(),total=self.sequence_size,desc="Scaling pixels"):
-            tif = loader.tif_from_stack(stack)
-
-            for page in tif.pages:
-                frame = page.asarray()
-                self.pxmin = min(self.pxmin,frame.min())
-                self.pxmax = max(self.pxmax,frame.max())
+        cpu_count = mp.cpu_count() 
+        rstacks = sample(self.S.stacks,min(len(self.S),cpu_count))
         
-        self.compute_lut()
-
-    def compute_lut(self):
-        self.pxlut = np.concatenate([
-            np.zeros(self.pxmin, dtype=np.uint16),
-            np.linspace(0,255,self.pxmax - self.pxmin).astype(np.uint16),
-            np.ones(2**16 - self.pxmax, dtype=np.uint16) * 255
-            ])
+        futures = []
+        with ProcessPoolExecutor(max_workers=cpu_count) as executor: 
+            for (idx,stack) in enumerate(rstacks):
+                futures.append(executor.submit(get_min_max,stack))
+        
+        futures, _ = concurrent.futures.wait(futures)
+        
+        self.pxmin = min([f.result()[0] for f in futures])
+        self.pxmax = max([f.result()[1] for f in futures])
+        
+        self.pxlut = compute_lut(self.pxmin,self.pxmax)
 
     def map_uint16_to_uint8(self,img):
         """
@@ -96,42 +118,42 @@ class TimeLapse(Stack):
 
         if key == ord('b'):
             self.pxmax = max(self.pxmin,self.pxmax-100)
-            self.compute_lut()
+            self.pxlut = compute_lut(self.pxmin,self.pxmax)
             update_display(self)
         
         elif key == ord('t'):
-            self.pxmax = min(self.MAX_PX,self.pxmax+100)
-            self.compute_lut()
+            self.pxmax = min(MAX_PIXEL,self.pxmax+100)
+            self.pxlut = compute_lut(self.pxmin,self.pxmax)
             update_display(self)
         
         elif key == ord('v'):
             self.pxmax = max(self.pxmin,self.pxmax-1)
-            self.compute_lut()
+            self.pxlut = compute_lut(self.pxmin,self.pxmax)
             update_display(self)
         
         elif key == ord('r'):
-            self.pxmax = min(self.MAX_PX,self.pxmax+1)
-            self.compute_lut()
+            self.pxmax = min(MAX_PIXEL,self.pxmax+1)
+            self.pxlut = compute_lut(self.pxmin,self.pxmax)
             update_display(self)
  
         elif key == ord('w'):
             self.pxmin = min(self.pxmax,self.pxmin+100)
-            self.compute_lut()
+            self.pxlut = compute_lut(self.pxmin,self.pxmax)
             update_display(self)
         
         elif key == ord('x'):
             self.pxmin = max(0,self.pxmin-100)
-            self.compute_lut()
+            self.pxlut = compute_lut(self.pxmin,self.pxmax)
             update_display(self)
         
         elif key == ord('e'):
             self.pxmin = min(self.pxmax,self.pxmin+1)
-            self.compute_lut()
+            self.pxlut = compute_lut(self.pxmin,self.pxmax)
             update_display(self)
         
         elif key == ord('c'):
             self.pxmin = max(0,self.pxmin-1)
-            self.compute_lut()
+            self.pxlut = compute_lut(self.pxmin,self.pxmax)
             update_display(self)
 
 class TimeLapseMax(TimeLapse):
@@ -153,11 +175,29 @@ class TimeLapseMax(TimeLapse):
         self.update_title() 
         return image
 
+def get_min_max(stack):
+    pxmin = MAX_PIXEL
+    pxmax = 0
+    tif = loader.tif_from_stack(stack)
+    for page in tif.pages:
+        frame = page.asarray()
+        pxmin = min(pxmin,frame.min())
+        pxmax = max(pxmax,frame.max())
+    return (pxmin,pxmax)
 
+def compute_lut(pxmin,pxmax):
+    pxlut = np.concatenate([
+        np.zeros(pxmin, dtype=np.uint16),
+        np.linspace(0,255,pxmax - pxmin).astype(np.uint16),
+        np.ones(MAX_PIXEL - pxmax, dtype=np.uint16) * 255
+        ])
+    
+    return pxlut
 
 def update_display(T):
     cout = f'''
         Viewing {T.path} 
+        Sequence length: {T.sequence_size}
 
         Keys:
         -----
@@ -188,16 +228,20 @@ def update_display(T):
 
 
 def timelapse(args):
-    assert args.fin is not None, "You must provide an input file (-i)"
     T = TimeLapse(args.fin)
+    T.preprocess() 
+    T.init_window() 
     image_looper(T)
 
 def timelapsemax(args):
-    assert args.fin is not None, "You must provide an input file (-i)"
     T = TimeLapseMax(args.fin)
+    T.preprocess()
+    T.init_window() 
     image_looper(T)
 
-
+def ls_sequence(args):
+    T = TimeLapse(args.fin)
+    for s in T.S.iter_stacks(): print(s)
 
 if __name__=="__main__":
     parser = argparse.ArgumentParser(description=__doc__,
@@ -208,20 +252,11 @@ if __name__=="__main__":
                         choices = [t for (t,o) in getmembers(sys.modules[__name__]) if isfunction(o)],
                         help = 'Function call')
     
-    parser.add_argument('-d','--input_dir',
+    parser.add_argument('fin',
                 action = 'store',
-                dest = 'din',
-                required = False,
-                default = None,
-                help = 'Path to Input directory')
+                nargs = '*',
+                help = 'Path to input file(s). Use * for multiple files or consult your OS')
     
-    parser.add_argument('-i','--input',
-                action = 'store',
-                dest = 'fin',
-                required = False,
-                default = None,
-                type=str,
-                help = 'Path to input file(s). Use * for multiple files.')
     
     args = parser.parse_args()
     eval(args.mode + '(args)')

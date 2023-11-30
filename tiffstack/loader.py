@@ -22,8 +22,12 @@ from tifffile import TiffFile
 from pycsvparser.read import parse_file
 
 class Session(object):
-    def __init__(self,path):
-        self.stacks = stacks_from_path(path)
+    def __init__(self,paths):
+        if len(paths) == 1: 
+            self.stacks = stacks_from_path(paths)
+        else:
+            paths.sort(key=natural_keys)
+            self.stacks = paths
         tif = tif_from_stack(self.stacks[0])
         self.height = tif.pages[0].shape[0] 
         self.width = tif.pages[0].shape[1] 
