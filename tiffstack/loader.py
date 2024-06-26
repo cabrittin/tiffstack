@@ -16,6 +16,7 @@ import os
 import glob
 import re
 import numpy as np
+import cv2
 
 from tifffile import TiffFile
 
@@ -23,7 +24,7 @@ from pycsvparser.read import parse_file
 
 class Session(object):
     def __init__(self,paths):
-        if len(paths) == 1: 
+        if isinstance(paths,str): 
             self.stacks = stacks_from_path(paths)
         else:
             paths.sort(key=natural_keys)
