@@ -25,6 +25,7 @@ import concurrent.futures
 from random import sample
 import time
 from ndstorage.ndtiff_index import NDTiffIndexEntry
+from ndstorage import Dataset 
 
 from tiffstack.viewer import Stack,image_looper
 from tiffstack.loader import Session
@@ -375,6 +376,107 @@ class TimeLapseFast(Stack):
             self.pxlut = compute_lut(self.pxmin,self.pxmax)
             update_display(self)
 
+class NDTiff():
+    def __init__(self,*args,**kwargs):
+        self.path = args[0] 
+        self.A = Dataset(args[0]).as_array()
+        self.sequence_size = self.A.shape[0]
+        self.stack_size = self.A.shape[2]
+        self.shape = (self.A.shape[3],self.A.shape[4])
+        self.n_channels = self.A.shape[1]
+
+        self.jdx = 0
+        self.idx = 0
+        self.cdx = 0
+
+        self.flip_channel = True
+
+    def init_window(self):
+        self.wtitle = 'Time point %d/%d ::: Z %d/%d ::: Channel %d/%d'
+        self.win ='Volume'
+        cv2.namedWindow(self.win)
+        cv2.moveWindow(self.win,800,500)
+        self.update_title()
+
+    def update_title(self):
+        wtitle = self.wtitle%(self.jdx,self.sequence_size,self.idx,self.stack_size,self.cdx,self.n_channels-1)
+        cv2.setWindowTitle(self.win,wtitle)
+    
+    def load_stack(self,jdx):
+        self.jdx = jdx
+
+    def display(self,idx):
+        self.idx = idx 
+        self.update_title() 
+        img  = np.array(self.A[self.jdx,self.cdx,self.idx,:,:])
+        if self.flip_channel and self.cdx == 1: img = np.fliplr(img) 
+
+        return self.map_uint16_to_uint8(img)
+    
+    def preprocess(self):
+        self.pxmin = int(self.A[0,0,:,:,:].min())
+        self.pxmax= int(self.A[0,0,:,:,:].max())
+        self.pxlut = compute_lut(self.pxmin,self.pxmax)
+
+    def get_sequence_size(self):
+        return self.sequence_size
+
+    def get_stack_size(self):
+        return self.stack_size
+    
+    def map_uint16_to_uint8(self,img):
+        """
+        Maps image from uint16 to uint8
+        """
+        return self.pxlut[img].astype(np.uint8)
+    
+    def user_update(self,key,sequence_jdx,stack_idx):
+        jdx = sequence_jdx
+        idx = stack_idx
+
+        if key == ord('b'):
+            self.pxmax = max(self.pxmin,self.pxmax-100)
+            self.pxlut = compute_lut(self.pxmin,self.pxmax)
+            update_display(self)
+        
+        elif key == ord('t'):
+            self.pxmax = min(MAX_PIXEL,self.pxmax+100)
+            self.pxlut = compute_lut(self.pxmin,self.pxmax)
+            update_display(self)
+        
+        elif key == ord('v'):
+            self.pxmax = max(self.pxmin,self.pxmax-1)
+            self.pxlut = compute_lut(self.pxmin,self.pxmax)
+            update_display(self)
+        
+        elif key == ord('r'):
+            self.pxmax = min(MAX_PIXEL,self.pxmax+1)
+            self.pxlut = compute_lut(self.pxmin,self.pxmax)
+            update_display(self)
+ 
+        elif key == ord('w'):
+            self.pxmin = min(self.pxmax,self.pxmin+100)
+            self.pxlut = compute_lut(self.pxmin,self.pxmax)
+            update_display(self)
+        
+        elif key == ord('x'):
+            self.pxmin = max(0,self.pxmin-100)
+            self.pxlut = compute_lut(self.pxmin,self.pxmax)
+            update_display(self)
+        
+        elif key == ord('e'):
+            self.pxmin = min(self.pxmax,self.pxmin+1)
+            self.pxlut = compute_lut(self.pxmin,self.pxmax)
+            update_display(self)
+        
+        elif key == ord('c'):
+            self.pxmin = max(0,self.pxmin-1)
+            self.pxlut = compute_lut(self.pxmin,self.pxmax)
+            update_display(self)
+
+        elif key == ord('i'):
+            self.cdx = (self.cdx+1) % self.n_channels
+            update_display(self)
 
 
 def timelapse(args):
@@ -391,7 +493,13 @@ def timelapsemax(args):
     image_looper(T)
 
 def ndtiff(args):
-    from ndstorage import Dataset 
+    T = NDTiff(args.fin[0])
+    T.preprocess() 
+    T.init_window()
+    image_looper(T)
+
+
+def _ndtiff(args):
     import matplotlib.pyplot as plt 
     #from pycromanager import Dataset
 
