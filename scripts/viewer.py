@@ -376,6 +376,7 @@ class TimeLapseFast(Stack):
             self.pxlut = compute_lut(self.pxmin,self.pxmax)
             update_display(self)
 
+
 class NDTiff():
     def __init__(self,*args,**kwargs):
         self.path = args[0] 
@@ -478,6 +479,17 @@ class NDTiff():
             self.cdx = (self.cdx+1) % self.n_channels
             update_display(self)
 
+class NDTiffMax(NDTiff):
+    def __init__(self,*args,**kwargs):
+        super().__init__(*args,**kwargs)
+
+    def display(self,idx):
+        self.idx = idx 
+        self.update_title() 
+        img  = np.array(self.A[self.jdx,self.cdx,:,:,:]).max(axis=0)
+        if self.flip_channel and self.cdx == 1: img = np.fliplr(img) 
+        return self.map_uint16_to_uint8(img)
+ 
 
 def timelapse(args):
     T = TimeLapseFast(args.fin)
@@ -498,46 +510,11 @@ def ndtiff(args):
     T.init_window()
     image_looper(T)
 
-
-def _ndtiff(args):
-    import matplotlib.pyplot as plt 
-    #from pycromanager import Dataset
-
-    D = Dataset(args.fin[0])
-    print(D.axes.keys()) 
-    
-    print(D.summary_metadata)
-    print(dir(D))
-    #for k in D.get_index_keys(): print(k)
-    for k in D.get_channel_names(): print(k)
-    
-    """
-    img = D.read_image(time=30,z=21,channel=0)
-    fig,ax = plt.subplots(1,1,figsize=(10,10))
-    ax.imshow(img,cmap='gray')
-    
-    img = D.read_image(time=30,z=21,channel=1)
-    fig,ax = plt.subplots(1,1,figsize=(10,10))
-    ax.imshow(img,cmap='gray')
- 
-    plt.show()
-    """
-
-    print(len(D.index),300*41) 
-    A = D.as_array()
-
-    print(A.shape)
-    
-    img = A[30,0,21,:,:]
-    fig,ax = plt.subplots(1,1,figsize=(10,10))
-    ax.imshow(img,cmap='gray')
-    
-    img = A[30,1,21,:,:]
-    fig,ax = plt.subplots(1,1,figsize=(10,10))
-    ax.imshow(img,cmap='gray')
- 
-    plt.show()
- 
+def ndtiff_max(args):
+    T = NDTiffMax(args.fin[0])
+    T.preprocess() 
+    T.init_window()
+    image_looper(T)
 
 def ls_sequence(args):
     T = TimeLapse(args.fin)
