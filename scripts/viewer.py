@@ -482,7 +482,21 @@ class NDTiff():
 class NDTiffMax(NDTiff):
     def __init__(self,*args,**kwargs):
         super().__init__(*args,**kwargs)
+    
+    """
+    def preprocess(self):
+        self.pxmin = int(self.A[0,0,:,:,:].min())
+        self.pxmax= int(self.A[0,0,:,:,:].max())
+        self.pxlut = compute_lut(self.pxmin,self.pxmax)
 
+
+        self.Amax = np.zeros((self.sequence_size,self.n_channels,self.shape[0],self.shape[1]),dtype=np.uint8)
+        for i in tqdm(range(self.sequence_size),desc='Sequence processed'):
+            for j in range(self.n_channels):
+                img = np.array(self.A[i,j,:,:,:]).max(axis=0)
+                self.Amax[i,j,:,:] = self.map_uint16_to_uint8(img)
+
+    """
     def display(self,idx):
         self.idx = idx 
         self.update_title() 
