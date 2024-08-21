@@ -11,8 +11,7 @@ Module for viewing tiff stacks in a VIM like editor
 import cv2
 
 def image_looper(S,large_iter=100,reset_idx=False):
-    jdx = 0
-    idx = 0 
+    jdx,idx = S.get_start_indicies()  
     max_j = S.get_sequence_size() - 1
     while True:
         S.load_stack(jdx)
