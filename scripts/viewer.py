@@ -13,6 +13,7 @@ import sys
 import os
 import argparse
 from inspect import getmembers,isfunction
+from tqdm import tqdm
 
 from tiffstack.viewer import image_looper
 
@@ -56,6 +57,21 @@ def ls_sequence(args):
     T = TimeLapse(args.fin)
     for s in T.S.iter_stacks(): print(s)
 
+def ndtiff_to_tiff(args):
+    from tiffstack.datasets import NDTiff
+    from tifffile import imwrite
+    import numpy as np
+    T = NDTiff(args.fin[0])
+    
+    print(f'Saving {args.fin[0]} to {args.fout}')
+    data = np.zeros((T.stack_size,T.sequence_size,T.shape[0],T.shape[1]),'uint16')
+    for i in tqdm(range(T.sequence_size),desc='Sequence processed'):
+    #for i in tqdm(range(2),desc='Sequence processed'):
+        for j in range(T.stack_size):
+            data[j,i,:,:]  = np.array(T.A[i,0,j,:,:])
+            
+    imwrite(args.fout,data)
+
 if __name__=="__main__":
     parser = argparse.ArgumentParser(description=__doc__,
                                      formatter_class=argparse.RawDescriptionHelpFormatter)
@@ -70,6 +86,12 @@ if __name__=="__main__":
                 nargs = '*',
                 help = 'Path to input file(s). Use * for multiple files or consult your OS')
     
+    parser.add_argument('-o','--output',
+                dest = 'fout',
+                action = 'store',
+                default = None,
+                required = False,
+                help = 'Path to input file(s). Use * for multiple files or consult your OS')
     
     args = parser.parse_args()
     eval(args.mode + '(args)')
