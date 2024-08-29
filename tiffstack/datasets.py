@@ -379,7 +379,8 @@ class NDTiff():
         self.stack_size = self.A.shape[2]
         self.shape = (self.A.shape[3],self.A.shape[4])
         self.n_channels = self.A.shape[1]
-
+         
+        self.z_shift = 6
         self.jdx = 0
         self.idx = 0
         self.cdx = 0
@@ -405,8 +406,10 @@ class NDTiff():
 
     def display(self,idx):
         self.idx = idx 
-        self.update_title() 
-        img  = np.array(self.A[self.jdx,self.cdx,self.idx,:,:])
+        self.update_title()
+        _idx = (self.idx + self.z_shift) % self.stack_size
+        #img  = np.array(self.A[self.jdx,self.cdx,self.idx,:,:])
+        img  = np.array(self.A[self.jdx,self.cdx,_idx,:,:])
         if self.flip_channel and self.cdx == 1: img = np.fliplr(img) 
 
         return self.map_uint16_to_uint8(img)
@@ -475,6 +478,14 @@ class NDTiff():
         elif key == ord('i'):
             self.cdx = (self.cdx+1) % self.n_channels
             update_display(self)
+        
+        elif key == ord('r'):
+            update_display(self)
+        
+        self._update_display()
+
+    def _update_display(self):
+        pass
 
 class NDTiffMax(NDTiff):
     def __init__(self,*args,**kwargs):
@@ -508,11 +519,25 @@ class NDTiffTrack(NDTiff):
         
         self.jnum = 1
         self.inum = 2
-    
+        self.z_shift = 6
+        
         self.idx = self.inum
         self.jdx = self.jnum
 
         self.D = np.zeros(((2*self.jnum+1)*self.shape[0],(2*self.inum+1)*self.shape[1]),dtype=int) 
+        #self.Ddisplay = loader.image_to_rgb(self.map_uint16_to_uint8(self.D))
+
+        self.max_objects = 100
+        self.obj = (0,0) 
+
+
+    def init_window(self):
+        self.wtitle = 'Time point %d/%d ::: Z %d/%d ::: Channel %d/%d'
+        self.win ='Volume'
+        cv2.namedWindow(self.win)
+        cv2.moveWindow(self.win,800,500)
+        cv2.setMouseCallback(self.win,draw_roi,self)
+        self.update_title()
 
 
     def load_stack(self,jdx):
@@ -527,13 +552,30 @@ class NDTiffTrack(NDTiff):
         
         for (jdx,j) in enumerate(range(self.jdx-self.jnum,self.jdx+self.jnum+1)):
             for (idx,i) in enumerate(range(self.idx-self.inum,self.idx+self.inum+1)):
-                img  = np.array(self.A[j,self.cdx,i,:,:])
+                _i = (i + self.z_shift) % self.stack_size
+                img  = np.array(self.A[j,self.cdx,_i,:,:])
                 if self.flip_channel and self.cdx == 1: img = np.fliplr(img) 
                 self.D[self.shape[0]*jdx:self.shape[0]*(jdx+1):,self.shape[1]*idx:self.shape[1]*(idx+1)] = img
-                
-        return self.map_uint16_to_uint8(self.D)
+        
+        self.Ddisplay = loader.image_to_rgb(self.map_uint16_to_uint8(self.D))
+        self._update_display()
+
+        return self.Ddisplay
+        
+    def add_object(self,yt,xt):
+        self.obj = (yt,xt)
+   
+    
+    def _update_display(self):
+        (y,x) = self.obj
+        cv2.circle(self.Ddisplay,(x,y),5,(0,0,255),2)
+        print(y,x)
 
 
+def draw_roi(event,x,y,flags,V):
+    if event == cv2.EVENT_LBUTTONDOWN:
+        V.add_object(y,x)
+        V._update_display()
 
 
 

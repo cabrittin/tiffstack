@@ -64,11 +64,12 @@ def ndtiff_to_tiff(args):
     T = NDTiff(args.fin[0])
     
     print(f'Saving {args.fin[0]} to {args.fout}')
-    data = np.zeros((T.stack_size,T.sequence_size,T.shape[0],T.shape[1]),'uint16')
-    for i in tqdm(range(T.sequence_size),desc='Sequence processed'):
-    #for i in tqdm(range(2),desc='Sequence processed'):
-        for j in range(T.stack_size):
-            data[j,i,:,:]  = np.array(T.A[i,0,j,:,:])
+    data = np.zeros((T.sequence_size,T.stack_size,2,T.shape[0],T.shape[1]),'uint16')
+    #for i in tqdm(range(T.sequence_size),desc='Sequence processed'):
+    for i in tqdm(range(2),desc='Sequence processed'):
+        for k in range(2): 
+            for j in range(T.stack_size):
+                data[i,j,k,:,:]  = np.array(T.A[i,k,j,:,:])
             
     imwrite(args.fout,data)
 
