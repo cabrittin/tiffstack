@@ -50,6 +50,7 @@ def ndtiff_track(args):
     T = NDTiffTrack(args.fin[0])
     T.preprocess() 
     T.init_window()
+    T.init_objects() 
     image_looper(T)
 
 def ls_sequence(args):

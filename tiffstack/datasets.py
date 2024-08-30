@@ -529,7 +529,9 @@ class NDTiffTrack(NDTiff):
 
         self.max_objects = 100
         self.obj = (0,0) 
-
+        self.objects = None
+        self.curr_obj = 0
+        self.kdx = 0
 
     def init_window(self):
         self.wtitle = 'Time point %d/%d ::: Z %d/%d ::: Channel %d/%d'
@@ -539,7 +541,12 @@ class NDTiffTrack(NDTiff):
         cv2.setMouseCallback(self.win,draw_roi,self)
         self.update_title()
 
-
+    def init_objects(self):
+        self.curr_obj = 0
+        #self.objects = self.load_objects() 
+        if self.objects is None: 
+            self.objects = np.zeros((self.max_objects,self.sequence_size,3),dtype=np.uint16)
+ 
     def load_stack(self,jdx):
         if (jdx >= self.jnum) and (jdx < self.sequence_size - self.jnum):
             self.jdx = jdx
@@ -563,11 +570,27 @@ class NDTiffTrack(NDTiff):
         return self.Ddisplay
         
     def add_object(self,yt,xt):
-        self.obj = (yt,xt)
-   
+        qrow,mrow = divmod(yt,self.shape[0])
+        qcol,mcol = divmod(xt,self.shape[1])
+        z = (2*self.jnum+1)*qrow + qcol
+        self.objects[self.curr_obj,self.kdx,0] = z
+        self.objects[self.curr_obj,self.kdx,1] = mrow
+        self.objects[self.curr_obj,self.kdx,2] = mcol
+        print(z,mrow,mcol)
+
+    def get_current_object(self):
+        z = self.objects[self.curr_obj,self.kdx,0]
+        cols = self.jnum * 2 + 1
+        qrow,qcol = divmod(z,cols)
+        y = self.objects[self.curr_obj,self.kdx,1]
+        x = self.objects[self.curr_obj,self.kdx,2]
+        yt = qrow*self.shape[1] + y
+        xt = qcol*self.shape[0] + x 
+        return (yt,xt)
+ 
     
     def _update_display(self):
-        (y,x) = self.obj
+        (y,x) = self.get_current_object()
         cv2.circle(self.Ddisplay,(x,y),5,(0,0,255),2)
         print(y,x)
 
