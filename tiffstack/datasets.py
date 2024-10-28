@@ -375,11 +375,21 @@ class NDTiff():
     def __init__(self,*args,**kwargs):
         self.path = args[0] 
         self.A = Dataset(args[0]).as_array()
-        self.sequence_size = self.A.shape[0]
-        self.stack_size = self.A.shape[2]
-        self.shape = (self.A.shape[3],self.A.shape[4])
-        self.n_channels = self.A.shape[1]
-         
+        
+        try:
+            # Multi channels 
+            self.sequence_size = self.A.shape[0]
+            self.stack_size = self.A.shape[2]
+            self.shape = (self.A.shape[3],self.A.shape[4])
+            self.n_channels = self.A.shape[1]
+        
+        except:
+            # Single channel
+            self.sequence_size = self.A.shape[0]
+            self.stack_size = self.A.shape[1]
+            self.shape = (self.A.shape[2],self.A.shape[3])
+            self.n_channels = 1
+             
         self.z_shift = 6
         self.jdx = 0
         self.idx = 0
@@ -409,14 +419,21 @@ class NDTiff():
         self.update_title()
         _idx = (self.idx + self.z_shift) % self.stack_size
         #img  = np.array(self.A[self.jdx,self.cdx,self.idx,:,:])
-        img  = np.array(self.A[self.jdx,self.cdx,_idx,:,:])
+        if self.n_channels == 1:
+            img  = np.array(self.A[self.jdx,_idx,:,:])
+        else:
+            img  = np.array(self.A[self.jdx,self.cdx,_idx,:,:])
         if self.flip_channel and self.cdx == 1: img = np.fliplr(img) 
 
         return self.map_uint16_to_uint8(img)
     
     def preprocess(self):
-        self.pxmin = int(self.A[0,0,:,:,:].min())
-        self.pxmax= int(self.A[0,0,:,:,:].max())
+        if self.n_channels == 1: 
+            self.pxmin = int(self.A[0,:,:,:].min())
+            self.pxmax= int(self.A[0,:,:,:].max())
+        else: 
+            self.pxmin = int(self.A[0,0,:,:,:].min())
+            self.pxmax= int(self.A[0,0,:,:,:].max())
         self.pxlut = compute_lut(self.pxmin,self.pxmax)
 
     def get_sequence_size(self):
@@ -508,7 +525,10 @@ class NDTiffMax(NDTiff):
     def display(self,idx):
         self.idx = idx 
         self.update_title() 
-        img  = np.array(self.A[self.jdx,self.cdx,:,:,:]).max(axis=0)
+        if self.n_channels == 1: 
+            img  = np.array(self.A[self.jdx,:,:,:]).max(axis=0)
+        else: 
+            img  = np.array(self.A[self.jdx,self.cdx,:,:,:]).max(axis=0)
         if self.flip_channel and self.cdx == 1: img = np.fliplr(img) 
         return self.map_uint16_to_uint8(img)
 
