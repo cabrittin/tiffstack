@@ -73,12 +73,12 @@ def image_to_gray(image):
         image = cv2.cvtColor(image,cv2.COLOR_BGR2GRAY)
     return image
 
-def array_16bit_to_8bit(a):
+def array_16bit_to_8bit(a,display_min=None,display_max=None):
     # If already 8bit, return array
     if a.dtype == 'uint8': return a
     a = np.array(a,copy=True)
-    display_min = np.amin(a)
-    display_max = np.amax(a)
+    if display_min is None: display_min = np.amin(a)
+    if display_max is None: display_max = np.amax(a)
     a.clip(display_min, display_max, out=a)
     a -= display_min
     np.floor_divide(a, (display_max - display_min + 1) / 256,

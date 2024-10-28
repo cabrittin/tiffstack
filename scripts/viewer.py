@@ -66,13 +66,56 @@ def ndtiff_to_tiff(args):
     
     print(f'Saving {args.fin[0]} to {args.fout}')
     data = np.zeros((T.sequence_size,T.stack_size,2,T.shape[0],T.shape[1]),'uint16')
-    #for i in tqdm(range(T.sequence_size),desc='Sequence processed'):
-    for i in tqdm(range(2),desc='Sequence processed'):
+    for i in tqdm(range(T.sequence_size),desc='Sequence processed'):
+    #for i in tqdm(range(2),desc='Sequence processed'):
         for k in range(2): 
             for j in range(T.stack_size):
-                data[i,j,k,:,:]  = np.array(T.A[i,k,j,:,:])
+                if k == 1: 
+                    data[i,j,k,:,:]  = np.fliplr(np.array(T.A[i,k,j,:,:]))
+                else: 
+                    data[i,j,k,:,:]  = np.array(T.A[i,k,j,:,:])
             
     imwrite(args.fout,data)
+
+def ndtiffmax_to_tiff(args):
+    from tiffstack.datasets import NDTiff
+    from tifffile import imwrite
+    import numpy as np
+    T = NDTiff(args.fin[0])
+    
+    print(f'Saving {args.fin[0]} to {args.fout}')
+    data = np.zeros((T.sequence_size,1,2,T.shape[0],T.shape[1]),'uint16')
+    for i in tqdm(range(T.sequence_size),desc='Sequence processed'):
+    #for i in tqdm(range(2),desc='Sequence processed'):
+        for k in range(2): 
+            if k == 1: 
+                data[i,0,k,:,:]  = np.fliplr(np.array(T.A[i,k,:,:,:].max(axis=0)))
+            else:
+                data[i,0,k,:,:]  = np.array(T.A[i,k,:,:,:].max(axis=0))
+            
+    imwrite(args.fout,data)
+
+def ndtiffmax_to_gif(args):
+    from tiffstack.datasets import NDTiff,compute_lut
+    import imageio
+    import numpy as np
+    import cv2
+
+    T = NDTiff(args.fin[0])
+    T.preprocess()
+    T.pxlut = compute_lut(567,3289)
+    k = 0 
+    print(f'Saving {args.fin[0]} to {args.fout}')
+    data = [] 
+    for i in tqdm(range(T.sequence_size),desc='Sequence processed'):
+    #for i in tqdm(range(2),desc='Sequence processed'):
+        frame = T.map_uint16_to_uint8(np.array(T.A[i,k,:,:,:].max(axis=0)))
+        data.append(cv2.cvtColor(frame, cv2.COLOR_GRAY2RGB))
+
+
+    imageio.mimsave(args.fout,data,fps=1)
+
+   
 
 if __name__=="__main__":
     parser = argparse.ArgumentParser(description=__doc__,
