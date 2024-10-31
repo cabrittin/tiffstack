@@ -390,7 +390,7 @@ class NDTiff():
             self.shape = (self.A.shape[2],self.A.shape[3])
             self.n_channels = 1
              
-        self.z_shift = 6
+        self.z_shift = 0
         self.jdx = 0
         self.idx = 0
         self.cdx = 0
@@ -539,7 +539,7 @@ class NDTiffTrack(NDTiff):
         
         self.jnum = 1
         self.inum = 2
-        self.z_shift = 6
+        self.z_shift = 0
         
         self.idx = self.inum
         self.jdx = self.jnum
