@@ -11,7 +11,6 @@ Maintains a buffer cache
 @date: 2023-07         
 """
 
-from configparser import ConfigParser,ExtendedInterpolation
 import os
 import glob
 import re

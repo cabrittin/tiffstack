@@ -8,6 +8,8 @@
 @date: 
 """
 
+import os
+from configparser import ConfigParser,ExtendedInterpolation
 import cv2
 import re
 from tqdm import tqdm
@@ -389,14 +391,40 @@ class NDTiff():
             self.stack_size = self.A.shape[1]
             self.shape = (self.A.shape[2],self.A.shape[3])
             self.n_channels = 1
-             
-        self.z_shift = 0
+        
+        self.ini = os.path.join(self.path,'viewer.ini')
+        self.cfg = ConfigParser(interpolation=ExtendedInterpolation())
+        
+        if os.path.exists(self.ini): 
+            self.cfg.read(self.ini)
+            self.z_shift = self.cfg.getint('params','z_shift')
+            self.flip_channel = self.cfg.getboolean('params','flip_channel')
+            self.channel_shift = self.cfg.getint('params','channel_shift')
+            self.channel_shift_x = self.cfg.getint('params','channel_shift_x')
+        else:
+            self.z_shift = 0
+            self.flip_channel = True
+            self.channel_shift = 0 
+            self.cfg['params'] = {'z_shift':self.z_shift,
+                                  'flip_channel':self.flip_channel,
+                                  'channel_shift':self.channel_shift,
+                                  'channel_shift_x':self.channel_shift_x
+                                  }
         self.jdx = 0
         self.idx = 0
         self.cdx = 0
-
-        self.flip_channel = True
     
+    def on_close(self):
+        self.cfg['params'] = {'z_shift':self.z_shift,
+                              'flip_channel':self.flip_channel,
+                              'channel_shift':self.channel_shift,
+                              'channel_shift_x':self.channel_shift_x
+                              }
+
+        with open(self.ini, 'w') as configfile:
+            self.cfg.write(configfile)
+            print(f'Saved to {self.ini}')
+
     def get_start_indicies(self):
         return self.jdx,self.idx
 
@@ -417,13 +445,21 @@ class NDTiff():
     def display(self,idx):
         self.idx = idx 
         self.update_title()
-        _idx = (self.idx + self.z_shift) % self.stack_size
+         
+        if self.cdx == 0: 
+            _idx = (self.idx + self.z_shift) % self.stack_size
+        else:
+            _idx = (self.idx + self.z_shift + self.channel_shift) % self.stack_size
         #img  = np.array(self.A[self.jdx,self.cdx,self.idx,:,:])
         if self.n_channels == 1:
             img  = np.array(self.A[self.jdx,_idx,:,:])
         else:
             img  = np.array(self.A[self.jdx,self.cdx,_idx,:,:])
         if self.flip_channel and self.cdx == 1: img = np.fliplr(img) 
+        
+        if self.cdx == 1 and self.channel_shift_x > 0:
+            img[:,self.channel_shift_x:] = img[:,:-self.channel_shift_x]
+            img[:,:self.channel_shift_x] = 0
 
         return self.map_uint16_to_uint8(img)
     
@@ -498,7 +534,34 @@ class NDTiff():
         
         elif key == ord('r'):
             update_display(self)
+
+        elif key == ord('1'):
+            if self.z_shift > 0: self.z_shift -= 1
+            update_display(self)
         
+        elif key == ord('2'):
+            if self.z_shift < self.get_stack_size() - 1 : self.z_shift += 1
+            update_display(self)
+       
+        elif key == ord('3'):
+            self.channel_shift -= 1
+            update_display(self)
+
+        elif key == ord('4'):
+            self.channel_shift += 1
+            update_display(self)
+        
+        elif key == ord('9'):
+            if self.channel_shift_x > 0: 
+                self.channel_shift_x -= 1
+                update_display(self)
+
+        elif key == ord('0'):
+            self.channel_shift_x += 1
+            update_display(self)
+            
+
+
         self._update_display()
 
     def _update_display(self):

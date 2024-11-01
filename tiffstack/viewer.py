@@ -23,6 +23,7 @@ def image_looper(S,large_iter=100,reset_idx=False):
             key = cv2.waitKey(0) & 0xFF 
 
             if key == ord('q'): 
+                S.on_close() 
                 return 0
             
             elif key == ord('k'): 
