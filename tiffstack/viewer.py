@@ -32,12 +32,6 @@ def image_looper(S,large_iter=100,reset_idx=False):
             elif key == ord('j'): 
                 idx = max(0,idx-1)
            
-            elif key == ord('u'):
-                idx = max(0,idx-large_iter)
-            
-            elif key == ord('f'):
-                idx = min(max_i,idx+large_iter)
-
             elif key == ord('h'):
                 if jdx == 0: 
                     jdx = max_j
@@ -52,7 +46,14 @@ def image_looper(S,large_iter=100,reset_idx=False):
                     jdx += 1
                 break
  
-            
+            elif key == ord('u'):
+                jdx = (jdx + large_iter) % max_j
+                break 
+
+            elif key == ord('f'):
+                jdx = (jdx-large_iter) % max_j
+                break
+           
             S.user_update(key,jdx,idx)
 
 def stack_saver(S,fout):

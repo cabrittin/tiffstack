@@ -14,7 +14,7 @@ import cv2
 import re
 from tqdm import tqdm
 import numpy as np
-import multiprocess as mp
+#import multiprocess as mp
 from multiprocessing import RawArray
 from concurrent.futures.process import ProcessPoolExecutor
 import concurrent.futures
@@ -372,8 +372,112 @@ class TimeLapseFast(Stack):
             self.pxlut = compute_lut(self.pxmin,self.pxmax)
             update_display(self)
 
-
 class NDTiff():
+    def __init__(self,*args,**kwargs):
+        self.path = args[0] 
+        self.A = Dataset(args[0]).as_array()
+    
+        self.jdx = 0
+        self.idx = 0
+
+    def load_dims(self):
+        self.sequence_size = self.A.shape[1]
+        self.stack_size = 1
+        self.shape = (self.A.shape[4],self.A.shape[5])
+    
+
+    def preprocess(self):
+        self.load_dims()
+        self.pxmin = int(self.A[0,0,0,0,:,:].min())
+        self.pxmax = int(self.A[0,0,0,0,:,:].max())
+        self.pxlut = compute_lut(self.pxmin,self.pxmax)
+    
+    def on_close(self):
+        pass
+
+    def get_start_indicies(self):
+        return self.jdx,self.idx
+
+    def init_window(self):
+        self.wtitle = 'Time point %d/%d'
+        self.win ='Stack'
+        cv2.namedWindow(self.win)
+        cv2.moveWindow(self.win,800,500)
+        self.update_title()
+
+    def update_title(self):
+        wtitle = self.wtitle%(self.jdx,self.sequence_size)
+        cv2.setWindowTitle(self.win,wtitle)
+    
+    def load_stack(self,jdx):
+        self.jdx = jdx
+
+    def get_sequence_size(self):
+        return self.sequence_size
+
+    def get_stack_size(self):
+        return self.stack_size
+    
+    def map_uint16_to_uint8(self,img):
+        """
+        Maps image from uint16 to uint8
+        """
+        return self.pxlut[img].astype(np.uint8)
+ 
+    def display(self,idx):
+        self.idx = idx 
+        self.update_title()
+        img  = np.array(self.A[0,self.jdx,0,0,:,:])
+
+        return self.map_uint16_to_uint8(img)
+    
+    def user_update(self,key,sequence_jdx,stack_idx):
+        jdx = sequence_jdx
+        idx = stack_idx
+
+        if key == ord('b'):
+            self.pxmax = max(self.pxmin,self.pxmax-100)
+            self.pxlut = compute_lut(self.pxmin,self.pxmax)
+            update_display(self)
+        
+        elif key == ord('t'):
+            self.pxmax = min(MAX_PIXEL,self.pxmax+100)
+            self.pxlut = compute_lut(self.pxmin,self.pxmax)
+            update_display(self)
+        
+        elif key == ord('v'):
+            self.pxmax = max(self.pxmin,self.pxmax-1)
+            self.pxlut = compute_lut(self.pxmin,self.pxmax)
+            update_display(self)
+        
+        elif key == ord('r'):
+            self.pxmax = min(MAX_PIXEL,self.pxmax+1)
+            self.pxlut = compute_lut(self.pxmin,self.pxmax)
+            update_display(self)
+ 
+        elif key == ord('w'):
+            self.pxmin = min(self.pxmax,self.pxmin+100)
+            self.pxlut = compute_lut(self.pxmin,self.pxmax)
+            update_display(self)
+        
+        elif key == ord('x'):
+            self.pxmin = max(0,self.pxmin-100)
+            self.pxlut = compute_lut(self.pxmin,self.pxmax)
+            update_display(self)
+        
+        elif key == ord('e'):
+            self.pxmin = min(self.pxmax,self.pxmin+1)
+            self.pxlut = compute_lut(self.pxmin,self.pxmax)
+            update_display(self)
+        
+        elif key == ord('c'):
+            self.pxmin = max(0,self.pxmin-1)
+            self.pxlut = compute_lut(self.pxmin,self.pxmax)
+            update_display(self)
+        
+
+
+class NDTiffZ():
     def __init__(self,*args,**kwargs):
         self.path = args[0] 
         self.A = Dataset(args[0]).as_array()
@@ -405,6 +509,7 @@ class NDTiff():
             self.z_shift = 0
             self.flip_channel = True
             self.channel_shift = 0 
+            self.channel_shift_x = 0 
             self.cfg['params'] = {'z_shift':self.z_shift,
                                   'flip_channel':self.flip_channel,
                                   'channel_shift':self.channel_shift,
