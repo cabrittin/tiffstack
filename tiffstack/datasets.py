@@ -672,7 +672,7 @@ class NDTiffZ():
     def _update_display(self):
         pass
 
-class NDTiffMax(NDTiff):
+class NDTiffMax(NDTiffZ):
     def __init__(self,*args,**kwargs):
         super().__init__(*args,**kwargs)
     

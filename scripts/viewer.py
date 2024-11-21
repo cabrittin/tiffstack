@@ -32,7 +32,7 @@ def timelapsemax(args):
     image_looper(T)
 
 def ndtiff(args):
-    from tiffstack.datasets import NDTiff
+    from tiffstack.datasets import NDTiffZ as NDTiff
     T = NDTiff(args.fin[0])
     T.preprocess() 
     T.init_window()
@@ -57,6 +57,29 @@ def ls_sequence(args):
     from tiffstack.datasets import TimeLapse
     T = TimeLapse(args.fin)
     for s in T.S.iter_stacks(): print(s)
+
+def ndtiff_to_tiff_split(args):
+    from tiffstack.datasets import NDTiffZ as NDTiff
+    from tifffile import imwrite
+    import numpy as np
+    T = NDTiff(args.fin[0])
+    z_shift = 4 
+    split_col = T.shape[1]
+    print(f'Saving {args.fin[0]} to {args.fout}')
+    data = np.zeros((T.stack_size,T.shape[0],2*T.shape[1]),'uint16')
+    for i in tqdm(range(T.sequence_size),desc='Sequence processed'):
+        for j in range(T.stack_size):
+            _jdx = (j + z_shift) % T.stack_size
+            for k in range(2): 
+                if k == 1: 
+                    data[j,:,split_col:]  = np.fliplr(np.array(T.A[i,k,_jdx,:,:]))
+                else: 
+                    data[j,:,:split_col]  = np.array(T.A[i,k,_jdx,:,:])
+        
+        _fout = args.fout.split('.')
+        fout = ''.join([_fout[0]] + [f'_t{i}.'] + [_fout[1]])
+        imwrite(fout,data)
+
 
 def ndtiff_to_tiff(args):
     from tiffstack.datasets import NDTiff
