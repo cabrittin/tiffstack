@@ -123,7 +123,9 @@ class Viewer:
             self.pxlut = compute_lut(self.pxmin,self.pxmax)
             update_display(self)
        
-        self._user_update(key)
+        jdx,idx = self._user_update(key)
+        
+        return jdx,idx
     
     def _user_update(self,key):
         pass
@@ -204,7 +206,11 @@ def image_looper(S,large_iter=100,reset_idx=False):
                 else:
                     jdx += 1
                 break
- 
+            
+            elif key == ord('z'):
+                jdx = 0
+                break
+
             elif key == ord('u'):
                 jdx = (jdx + large_iter) % max_j
                 break 
@@ -213,7 +219,7 @@ def image_looper(S,large_iter=100,reset_idx=False):
                 jdx = (jdx-large_iter) % max_j
                 break
            
-            S.user_update(key,jdx,idx)
+            jdx,idx = S.user_update(key,jdx,idx)
 
 def stack_saver(S,fout):
     size = S.display_size
