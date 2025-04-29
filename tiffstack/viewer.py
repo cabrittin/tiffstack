@@ -57,6 +57,9 @@ class Viewer:
 
     def load_stack(self,jdx):
         self.jdx = jdx
+    
+    def load_slice(self,idx):
+        self.idx = idx
 
     def get_sequence_size(self):
         return self.sequence_size
@@ -82,7 +85,7 @@ class Viewer:
     def user_update(self,key,sequence_jdx,stack_idx):
         jdx = sequence_jdx
         idx = stack_idx
-
+        
         if key == ord('b'):
             self.pxmax = max(self.pxmin,self.pxmax-100)
             self.pxlut = compute_lut(self.pxmin,self.pxmax)
@@ -128,7 +131,7 @@ class Viewer:
         return jdx,idx
     
     def _user_update(self,key):
-        pass
+        return 
 
 def compute_lut(pxmin,pxmax):
     pxlut = np.concatenate([
@@ -188,11 +191,20 @@ def image_looper(S,large_iter=100,reset_idx=False):
                 return 0
             
             elif key == ord('k'): 
-                idx = min(max_i,idx+1)
+                if idx == max_i: 
+                    idx = 0
+                else:
+                    idx += 1
+                S.load_slice(idx)
             
             elif key == ord('j'): 
-                idx = max(0,idx-1)
-           
+                S.load_slice(idx)
+                if idx == 0: 
+                    idx = max_i
+                else:
+                    idx -= 1
+                S.load_slice(idx)
+            
             elif key == ord('h'):
                 if jdx == 0: 
                     jdx = max_j
@@ -218,7 +230,7 @@ def image_looper(S,large_iter=100,reset_idx=False):
             elif key == ord('f'):
                 jdx = (jdx-large_iter) % max_j
                 break
-           
+            
             jdx,idx = S.user_update(key,jdx,idx)
 
 def stack_saver(S,fout):
